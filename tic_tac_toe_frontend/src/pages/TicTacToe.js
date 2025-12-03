@@ -100,10 +100,48 @@ export default Blits.Component('TicTacToe', {
             <Element :w="$cell.size" :h="$cell.size" color="#000000"
               :alpha="0.06" :effects="$cellEffects" />
 
-            <!-- X / O -->
-            <Text :content="$cell.symbol" :color="$cell.symbolColor"
-              :x="$cell.size/2" :y="$cell.size/2" mount="{x:0.5, y:0.5}" :alpha="$cell.symbolAlpha"
-              :size="$cell.fontSize" />
+            <!-- Knight / Queen SVG icon -->
+            <Element
+              :x="$cell.size/2"
+              :y="$cell.size/2"
+              mount="{x:0.5, y:0.5}"
+              :alpha="$cell.symbolAlpha"
+              :scale.transition="$cell.scaleTransition"
+            >
+              <!-- Invisible accessible text for screen readers via off-canvas Text (Lightning does not expose aria, so we provide descriptive text node) -->
+              <Text :content="$cell.alt" alpha="0" x="-10000" y="-10000" size="1" />
+              <!-- Use a vector path to draw icons. We ensure fill matches theme color and paths are centered. -->
+              <!-- Knight (for X) -->
+              <Element
+                :alpha="$cell.isKnight ? 1 : 0"
+                :w="$cell.iconSize"
+                :h="$cell.iconSize"
+                mount="{x:0.5,y:0.5}"
+              >
+                <!-- Simple stylized knight silhouette -->
+                <Path
+                  :commands="$knightPath"
+                  :fill="$cell.symbolColor"
+                  :stroke="$cell.stroke"
+                  :strokeWidth="$cell.strokeW"
+                />
+              </Element>
+              <!-- Queen (for O) -->
+              <Element
+                :alpha="$cell.isQueen ? 1 : 0"
+                :w="$cell.iconSize"
+                :h="$cell.iconSize"
+                mount="{x:0.5,y:0.5}"
+              >
+                <!-- Minimal queen with crown points -->
+                <Path
+                  :commands="$queenPath"
+                  :fill="$cell.symbolColor"
+                  :stroke="$cell.stroke"
+                  :strokeWidth="$cell.strokeW"
+                />
+              </Element>
+            </Element>
 
             <!-- Win highlight -->
             <Element :w="$cell.size" :h="$cell.size" :alpha="$cell.winAlpha"
@@ -165,12 +203,13 @@ export default Blits.Component('TicTacToe', {
     },
     statusText() {
       if (this.winner) {
-        return 'Winner: ' + this.winner
+        const piece = this.winner === 'X' ? 'Knight' : 'Queen'
+        return 'Winner: ' + piece
       }
       if (this.draw) {
         return 'Draw!'
       }
-      return 'Turn: ' + (this.xIsNext ? 'X' : 'O')
+      return 'Turn: ' + (this.xIsNext ? 'Knight' : 'Queen')
     },
     btnColor() {
       // Primary surface for button
@@ -198,6 +237,25 @@ export default Blits.Component('TicTacToe', {
     buttonOnlyRadiusEffects() {
       return [this.$shader('radius', { radius: 20 })]
     },
+    // Vector icon paths (normalized to a 100x100 box) for lightweight inline SVG-like rendering
+    knightPath() {
+      // Stylized knight silhouette path commands (M/L/C). Kept simple for low poly look and balance.
+      return 'M20 85 L30 60 C20 55 20 45 28 40 L22 35 L28 30 L24 24 L36 20 L46 30 L58 28 C64 35 66 42 62 48 L70 54 L78 64 L76 72 L66 70 L62 78 L52 84 Z'
+    },
+    queenPath() {
+      // Minimal queen with base and three spikes/crown points.
+      return 'M20 80 L80 80 L74 70 L26 70 Z M26 70 L35 48 L50 62 L65 48 L74 70 Z M35 48 C32 42 36 36 42 36 C46 36 48 38 50 40 C52 38 54 36 58 36 C64 36 68 42 65 48'
+    },
+    stroke() {
+      // Slight contrast stroke for visibility on white surface
+      return '#0b1220'
+    },
+    strokeW() {
+      return 2
+    },
+    scaleEase() {
+      return this.$ease('quadratic-out')
+    },
     /**
      * Prepare rendering data for each cell: positions, colors and symbols.
      */
@@ -209,16 +267,29 @@ export default Blits.Component('TicTacToe', {
       for (let i = 0; i < 9; i++) {
         const lay = cellLayout(i, bs)
         const isFocused = this.focusedIndex === i && !this.buttonFocused
-        const isOccupied = this.board[i] ? true : false
-        const symbol = this.board[i] || ''
+        const value = this.board[i]
+        const isOccupied = !!value
         const isWin = winSet.has(i)
-        // Colors
-        const baseCellColor = '#ffffff'
+
+        // Colors and overlays
+        const baseCellColor = THEME.surface
         const focusOverlay = (this.winner || this.draw) ? 0 : (isFocused ? 0.15 : 0)
         const focusOverlayColor = this.xIsNext ? THEME.primary : THEME.secondary
-        const symbolColor = isWin ? (this.winner === 'X' ? THEME.primary : THEME.secondary) : THEME.text
+
+        const symbolColor = isWin
+          ? (this.winner === 'X' ? THEME.primary : THEME.secondary)
+          : (value === 'X' ? THEME.primary : value === 'O' ? THEME.secondary : THEME.text)
+
         const winColor = this.winner ? (this.winner === 'X' ? THEME.primary : THEME.secondary) : THEME.primary
-        const fontSize = Math.floor(lay.cellSize * 0.55)
+        const iconSize = Math.floor(lay.cellSize * 0.68)
+
+        // Scale-in transition on placement (from 0.8 -> 1)
+        const scaleTransition = isOccupied
+          ? { value: 1, duration: 220, delay: 0, easing: this.scaleEase, start: 0.8 }
+          : { value: isFocused ? 0.98 : 1, duration: 120, delay: 0, easing: this.scaleEase }
+
+        // Accessibility text
+        const alt = value === 'X' ? 'Knight' : value === 'O' ? 'Queen' : 'Empty'
 
         res.push({
           id: 'cell-' + i,
@@ -228,13 +299,24 @@ export default Blits.Component('TicTacToe', {
           bg: baseCellColor,
           focusAlpha: focusOverlay,
           focusColor: focusOverlayColor,
-          symbol: symbol,
-          symbolAlpha: isOccupied ? 1 : 0.9,
+
+          // icon fields
+          isKnight: value === 'X',
+          isQueen: value === 'O',
+          iconSize: iconSize,
+          symbolAlpha: isOccupied ? 1 : 0,
           symbolColor: symbolColor,
+          stroke: '#0b1220',
+          strokeW: 2,
+          scaleTransition,
+
+          // win highlight
           isWin: isWin,
           winColor: winColor,
-          winAlpha: isWin ? 0.25 : 0, // used by template instead of v-if
-          fontSize: fontSize,
+          winAlpha: isWin ? 0.2 : 0,
+
+          // assistive text
+          alt,
         })
       }
       return res
