@@ -51,7 +51,7 @@ function evaluateBoard(board) {
  */
 function cellLayout(index, boardSize) {
   const padding = Math.round(boardSize * 0.02)
-  const cellSize = Math.floor((boardSize - padding * 4) / 3) // 4 paddings between/around 3 cells
+  const cellSize = Math.floor((boardSize - padding * 4) / 3)
   const row = Math.floor(index / 3)
   const col = index % 3
   const x = col * (cellSize + padding)
@@ -62,7 +62,6 @@ function cellLayout(index, boardSize) {
 export default Blits.Component('TicTacToe', {
   template: `
     <Element w="1920" h="1080" :color="$bgColor">
-      <!-- Center Container -->
       <Element :x="1920/2" :y="1080/2" mount="{x:0.5, y:0.5}">
         <!-- Status -->
         <Element :y="-($boardSizeComputed/2) - 140" :x="0" mount="{x:0.5}">
@@ -96,11 +95,11 @@ export default Blits.Component('TicTacToe', {
             <Element :alpha="$cell.focusAlpha" :w="$cell.size" :h="$cell.size" :color="$cell.focusColor"
               :effects="$cellEffects" />
 
-            <!-- Cell Border (subtle divider lines) -->
+            <!-- Cell Border -->
             <Element :w="$cell.size" :h="$cell.size" color="#000000"
               :alpha="0.06" :effects="$cellEffects" />
 
-            <!-- Knight / Queen SVG icon -->
+            <!-- Chess Icons via Images -->
             <Element
               :x="$cell.size/2"
               :y="$cell.size/2"
@@ -108,39 +107,23 @@ export default Blits.Component('TicTacToe', {
               :alpha="$cell.symbolAlpha"
               :scale.transition="$cell.scaleTransition"
             >
-              <!-- Invisible accessible text for screen readers via off-canvas Text (Lightning does not expose aria, so we provide descriptive text node) -->
               <Text :content="$cell.alt" alpha="0" x="-10000" y="-10000" size="1" />
-              <!-- Use a vector path to draw icons. We ensure fill matches theme color and paths are centered. -->
-              <!-- Knight (for X) -->
               <Element
                 :alpha="$cell.isKnight ? 1 : 0"
                 :w="$cell.iconSize"
                 :h="$cell.iconSize"
                 mount="{x:0.5,y:0.5}"
-              >
-                <!-- Simple stylized knight silhouette -->
-                <Path
-                  :commands="$knightPath"
-                  :fill="$cell.symbolColor"
-                  :stroke="$cell.stroke"
-                  :strokeWidth="$cell.strokeW"
-                />
-              </Element>
-              <!-- Queen (for O) -->
+                :src="$knightSrc"
+                :colorize="$cell.symbolColor"
+              />
               <Element
                 :alpha="$cell.isQueen ? 1 : 0"
                 :w="$cell.iconSize"
                 :h="$cell.iconSize"
                 mount="{x:0.5,y:0.5}"
-              >
-                <!-- Minimal queen with crown points -->
-                <Path
-                  :commands="$queenPath"
-                  :fill="$cell.symbolColor"
-                  :stroke="$cell.stroke"
-                  :strokeWidth="$cell.strokeW"
-                />
-              </Element>
+                :src="$queenSrc"
+                :colorize="$cell.symbolColor"
+              />
             </Element>
 
             <!-- Win highlight -->
@@ -187,17 +170,18 @@ export default Blits.Component('TicTacToe', {
       buttonFocused: false,
 
       // Layout
-      boardSize: 720, // base size; will adapt on focus and transitions
+      boardSize: 720,
       btnWidth: 260,
 
       // Hover/Focus alphas
       btnHoverAlpha: 0,
+
+      // icon assets
+      knightSrc: 'assets/knight.png',
+      queenSrc: 'assets/queen.png',
     }
   },
   computed: {
-    /**
-     * Reactive board sizing, can be made responsive later if needed.
-     */
     boardSizeComputed() {
       return this.boardSize
     },
@@ -212,7 +196,6 @@ export default Blits.Component('TicTacToe', {
       return 'Turn: ' + (this.xIsNext ? 'Knight' : 'Queen')
     },
     btnColor() {
-      // Primary surface for button
       return THEME.primary
     },
     btnTextColor() {
@@ -221,7 +204,6 @@ export default Blits.Component('TicTacToe', {
     btnHoverColor() {
       return '#ffffff'
     },
-    // Precomputed effects to avoid inline object literals in template
     statusEffects() {
       return [this.$shader('radius', { radius: 16 }), this.$shader('shadow', { color: '#000000', alpha: THEME.shadow, blur: 24, spread: 2 })]
     },
@@ -237,28 +219,9 @@ export default Blits.Component('TicTacToe', {
     buttonOnlyRadiusEffects() {
       return [this.$shader('radius', { radius: 20 })]
     },
-    // Vector icon paths (normalized to a 100x100 box) for lightweight inline SVG-like rendering
-    knightPath() {
-      // Stylized knight silhouette path commands (M/L/C). Kept simple for low poly look and balance.
-      return 'M20 85 L30 60 C20 55 20 45 28 40 L22 35 L28 30 L24 24 L36 20 L46 30 L58 28 C64 35 66 42 62 48 L70 54 L78 64 L76 72 L66 70 L62 78 L52 84 Z'
-    },
-    queenPath() {
-      // Minimal queen with base and three spikes/crown points.
-      return 'M20 80 L80 80 L74 70 L26 70 Z M26 70 L35 48 L50 62 L65 48 L74 70 Z M35 48 C32 42 36 36 42 36 C46 36 48 38 50 40 C52 38 54 36 58 36 C64 36 68 42 65 48'
-    },
-    stroke() {
-      // Slight contrast stroke for visibility on white surface
-      return '#0b1220'
-    },
-    strokeW() {
-      return 2
-    },
     scaleEase() {
       return this.$ease('quadratic-out')
     },
-    /**
-     * Prepare rendering data for each cell: positions, colors and symbols.
-     */
     boardRender() {
       const res = []
       const result = evaluateBoard(this.board)
@@ -271,7 +234,6 @@ export default Blits.Component('TicTacToe', {
         const isOccupied = !!value
         const isWin = winSet.has(i)
 
-        // Colors and overlays
         const baseCellColor = THEME.surface
         const focusOverlay = (this.winner || this.draw) ? 0 : (isFocused ? 0.15 : 0)
         const focusOverlayColor = this.xIsNext ? THEME.primary : THEME.secondary
@@ -283,12 +245,10 @@ export default Blits.Component('TicTacToe', {
         const winColor = this.winner ? (this.winner === 'X' ? THEME.primary : THEME.secondary) : THEME.primary
         const iconSize = Math.floor(lay.cellSize * 0.68)
 
-        // Scale-in transition on placement (from 0.8 -> 1)
         const scaleTransition = isOccupied
           ? { value: 1, duration: 220, delay: 0, easing: this.scaleEase, start: 0.8 }
           : { value: isFocused ? 0.98 : 1, duration: 120, delay: 0, easing: this.scaleEase }
 
-        // Accessibility text
         const alt = value === 'X' ? 'Knight' : value === 'O' ? 'Queen' : 'Empty'
 
         res.push({
@@ -300,22 +260,17 @@ export default Blits.Component('TicTacToe', {
           focusAlpha: focusOverlay,
           focusColor: focusOverlayColor,
 
-          // icon fields
           isKnight: value === 'X',
           isQueen: value === 'O',
           iconSize: iconSize,
           symbolAlpha: isOccupied ? 1 : 0,
           symbolColor: symbolColor,
-          stroke: '#0b1220',
-          strokeW: 2,
           scaleTransition,
 
-          // win highlight
           isWin: isWin,
           winColor: winColor,
           winAlpha: isWin ? 0.2 : 0,
 
-          // assistive text
           alt,
         })
       }
@@ -324,27 +279,21 @@ export default Blits.Component('TicTacToe', {
   },
   hooks: {
     ready() {
-      // Initial evaluation
       const res = evaluateBoard(this.board)
       this.winner = res.winner
       this.winLine = res.line
       this.draw = res.draw
-      // Set initial focus to the grid's first cell
       this.focusedIndex = 0
     },
     focus() {
-      // Default focus is first cell in the board
       this.buttonFocused = false
     },
   },
   methods: {
-    /**
-     * Handle selecting a cell via "Enter": place X/O if valid and update game result.
-     */
     onCellEnter() {
       if (this.winner || this.draw || this.buttonFocused) return
       const idx = this.focusedIndex
-      if (this.board[idx]) return // prevent overwriting
+      if (this.board[idx]) return
 
       const next = this.board.slice()
       next[idx] = this.xIsNext ? 'X' : 'O'
@@ -358,9 +307,6 @@ export default Blits.Component('TicTacToe', {
         this.xIsNext = !this.xIsNext
       }
     },
-    /**
-     * Restart the game to initial conditions.
-     */
     restart() {
       this.board = [null, null, null, null, null, null, null, null, null]
       this.xIsNext = true
@@ -379,12 +325,8 @@ export default Blits.Component('TicTacToe', {
       this.buttonFocused = false
       this.btnHoverAlpha = 0
     },
-    onCellFocus() {
-      // noop; handled by boardRender focusAlpha
-    },
-    onCellUnfocus() {
-      // noop
-    },
+    onCellFocus() {},
+    onCellUnfocus() {},
   },
   input: {
     left() {
@@ -401,7 +343,6 @@ export default Blits.Component('TicTacToe', {
     },
     up() {
       if (this.buttonFocused) {
-        // Move back to last focused cell when moving up from restart button
         this.buttonFocused = false
         return
       }
@@ -410,7 +351,6 @@ export default Blits.Component('TicTacToe', {
       if (r > 0) this.focusedIndex = this.focusedIndex - 3
     },
     down() {
-      // Allow moving focus to Restart button when on bottom row
       if (this.buttonFocused) return
       const r = Math.floor(this.focusedIndex / 3)
       if (r === 2) {
@@ -426,8 +366,6 @@ export default Blits.Component('TicTacToe', {
         this.onCellEnter()
       }
     },
-    back() {
-      // Optional: no-op
-    },
+    back() {},
   },
 })
