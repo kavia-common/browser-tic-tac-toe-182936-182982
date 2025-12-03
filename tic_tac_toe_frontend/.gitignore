@@ -1,0 +1,39 @@
+# Node modules
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+
+# Editor folders
+.vscode/
+.idea/
+
+# Cache and temp
+.cache/
+.tmp/
+*.log
+
+# Lightning specific
+*.ltngcache
+.lncache
+
+# Optional: ignore webpack stats and profiles
+stats.json
+
+# Optional: ignore local development files
+*.local.js
+*.local.json
