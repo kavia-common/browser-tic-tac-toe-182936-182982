@@ -1,6 +1,6 @@
 import Blits from '@lightningjs/blits'
 
-import Home from './pages/Home.js'
+import TicTacToe from './pages/TicTacToe.js'
 
 export default Blits.Application({
   template: `
@@ -8,5 +8,5 @@ export default Blits.Application({
       <RouterView />
     </Element>
   `,
-  routes: [{ path: '/', component: Home }],
+  routes: [{ path: '/', component: TicTacToe }],
 })
